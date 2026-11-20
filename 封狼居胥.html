@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>封狼居胥</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;600;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* 布局：整屏帛图战场在下，汉漆器黑底朱纹的面板从底部升起 */
+  --lacquer:#17100d;
+  --lacquer-2:#2a1b16;
+  --cinnabar:#c53a21;
+  --gold:#cfa650;
+  --silk:#ecdcb8;
+  --silk-dim:#b7a582;
+  --bronze:#5f8676;
+  --font-display:"Ma Shan Zheng","Kaiti SC","STKaiti","KaiTi",serif;
+  --font-body:"Noto Serif SC","Songti SC","SimSun",serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:var(--lacquer);color:var(--silk);font-family:var(--font-body);user-select:none;-webkit-user-select:none}
+#stage{position:fixed;inset:0;display:block;width:100%;height:100%;touch-action:none}
+
+/* 战中信息 */
+#hud{position:fixed;left:0;right:0;top:0;padding:10px 12px 0;display:none;pointer-events:none;gap:8px;flex-direction:column}
+#hud.on{display:flex}
+.hud-row{display:flex;gap:10px;align-items:flex-start}
+.meters{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;background:rgba(23,16,13,.82);border:1px solid rgba(207,166,80,.45);border-radius:3px;padding:7px 9px}
+.meter{display:flex;align-items:center;gap:7px;font-size:12px;line-height:1}
+.meter b{font-weight:600;width:2.2em;color:var(--silk-dim)}
+.meter i{flex:1;height:8px;background:#0c0806;border-radius:1px;overflow:hidden;display:block}
+.meter i u{display:block;height:100%;width:100%;transform-origin:left;text-decoration:none}
+#mHp u{background:var(--cinnabar)}
+#mFood u{background:var(--gold)}
+.meter span{font-variant-numeric:tabular-nums;min-width:4.6em;text-align:right;font-size:12px}
+#btnPause{pointer-events:auto;width:44px;height:44px;background:rgba(23,16,13,.82);border:1px solid rgba(207,166,80,.45);border-radius:3px;color:var(--silk);font:600 15px var(--font-body);cursor:pointer}
+#goal{align-self:flex-start;background:rgba(23,16,13,.82);border-left:3px solid var(--cinnabar);padding:5px 10px;font-size:13px;line-height:1.35;border-radius:0 3px 3px 0;max-width:100%}
+#goal small{color:var(--silk-dim);font-size:11px;margin-left:8px;font-variant-numeric:tabular-nums}
+
+#btnDash{position:fixed;right:18px;bottom:26px;width:84px;height:84px;border-radius:50%;display:none;border:2px solid var(--gold);background:radial-gradient(circle at 50% 40%,#d5482c,#7d1f10);color:#fff3da;font:26px var(--font-display);letter-spacing:2px;cursor:pointer;box-shadow:0 4px 0 #0c0806;touch-action:none}
+#btnDash.on{display:block}
+#btnDash[data-cd="1"]{filter:grayscale(.8) brightness(.6)}
+#btnDash:focus-visible,#btnPause:focus-visible,.btn:focus-visible,.perk:focus-visible{outline:2px solid var(--silk);outline-offset:3px}
+
+#toast{position:fixed;left:50%;top:27%;transform:translate(-50%,-50%) scale(.9);font:44px var(--font-display);color:#fff3da;text-shadow:0 2px 0 #5b1408,0 0 18px rgba(197,58,33,.9);opacity:0;pointer-events:none;white-space:nowrap;transition:opacity .25s,transform .25s}
+#toast.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
+
+/* 漆器面板 */
+#veil{position:fixed;inset:0;display:none;align-items:flex-end;justify-content:center;background:linear-gradient(to bottom,rgba(23,16,13,.05) 0%,rgba(23,16,13,.6) 38%,rgba(23,16,13,.94) 70%)}
+#veil.on{display:flex}
+#panel{width:min(100%,560px);max-height:100%;overflow-y:auto;padding:22px 20px 26px;display:flex;flex-direction:column;gap:14px}
+#panel::before{content:"";height:10px;flex:none;border-top:1px solid var(--gold);border-bottom:3px solid var(--cinnabar);opacity:.9}
+.eyebrow{font-size:12px;letter-spacing:.28em;color:var(--gold)}
+h1{font:400 clamp(64px,22vw,104px)/1 var(--font-display);color:#fff3da;text-wrap:balance;text-shadow:0 3px 0 #6b1a0c}
+h2{font:400 44px/1.1 var(--font-display);color:#fff3da;text-wrap:balance}
+.head{display:flex;gap:14px;align-items:center}
+.seal{flex:none;width:54px;height:54px;background:var(--cinnabar);color:#fff3da;font:34px/54px var(--font-display);text-align:center;border-radius:4px;box-shadow:inset 0 0 0 3px var(--cinnabar),inset 0 0 0 4px rgba(255,243,218,.7)}
+p{font-size:15px;line-height:1.75;max-width:34em}
+p.quote{font:24px/1.5 var(--font-display);color:var(--silk)}
+p.note{font-size:12.5px;color:var(--silk-dim);line-height:1.65}
+ul.goals{list-style:none;display:flex;flex-direction:column;gap:6px;font-size:14.5px}
+ul.goals li{display:flex;gap:9px;align-items:baseline}
+ul.goals li::before{content:"";flex:none;width:8px;height:8px;background:var(--cinnabar);transform:rotate(45deg) translateY(-1px)}
+.record{border-left:3px solid var(--gold);padding:2px 0 2px 12px;font-size:14.5px;line-height:1.75}
+.btns{display:flex;gap:10px;flex-wrap:wrap}
+.btn{min-height:48px;padding:0 26px;background:var(--cinnabar);color:#fff3da;border:none;border-radius:3px;font:600 17px var(--font-body);letter-spacing:.2em;cursor:pointer;box-shadow:0 3px 0 #5b1408}
+.btn:active{transform:translateY(2px);box-shadow:0 1px 0 #5b1408}
+.btn.ghost{background:transparent;color:var(--silk);box-shadow:inset 0 0 0 1px var(--silk-dim);letter-spacing:.1em;font-weight:400}
+.perks{display:flex;flex-direction:column;gap:10px}
+.perk{text-align:left;background:var(--lacquer-2);border:1px solid rgba(207,166,80,.5);border-radius:3px;padding:12px 14px;color:var(--silk);font-family:var(--font-body);cursor:pointer;display:flex;flex-direction:column;gap:3px}
+.perk strong{font:400 26px/1.1 var(--font-display);color:var(--gold)}
+.perk span{font-size:13.5px;line-height:1.5}
+.perk:active{border-color:var(--cinnabar);background:#3a1d15}
+.stats{display:flex;gap:22px;font-size:13px;color:var(--silk-dim)}
+.stats b{display:block;font:400 30px/1.1 var(--font-display);color:var(--silk);font-variant-numeric:tabular-nums}
+@media (min-width:700px){#panel{padding-bottom:48px}#toast{font-size:60px}}
+@media (prefers-reduced-motion:reduce){#toast{transition:none}}
+</style>
+</head>
+<body>
+<canvas id="stage" aria-label="战场"></canvas>
+
+<div id="hud">
+  <div class="hud-row">
+    <div class="meters">
+      <div class="meter" id="mHp"><b>兵力</b><i><u></u></i><span id="tHp">800</span></div>
+      <div class="meter" id="mFood"><b>粮草</b><i><u></u></i><span id="tFood">十足</span></div>
+    </div>
+    <button id="btnPause" type="button" aria-label="暂停">暂停</button>
+  </div>
+  <div id="goal"></div>
+</div>
+<button id="btnDash" type="button" aria-label="突驰">突驰</button>
+<div id="toast" aria-live="polite"></div>
+<div id="veil"><div id="panel"></div></div>
+
+<script>
+(function(){
+'use strict';
+
+/* ───────── 四场战役（据《史记·卫将军骠骑列传》） ───────── */
+const W=1300;
+const CH=[
+ {num:'序',name:'函谷受命',year:'演义 · 元朔六年春',troops:800,li:100,H:2600,lv:0,peace:1,gateY:1150,
+  ground:'#c8b27c',tuft:'#8f8c48',mtn:'#a8975f',
+  intro:'函谷关是关中的东大门。出征之前，汉武帝刘彻在关下亲点八百骠骑，把他们交给十八岁的外甥霍去病。',
+  marks:[{y:2250,t:'关中'},{y:1330,t:'函谷关'}],
+  objs:[{kind:'site',name:'汉武帝',verb:'谒',y:1620,x:W/2+170,guards:0,icon:'emperor'},
+        {kind:'site',name:'函谷关',verb:'出',y:1150,x:W/2,guards:0,icon:'gate'}],
+  record:'这一幕是演义：史书没有记载武帝到函谷关送行，霍去病历次出塞也是从定襄、陇西、北地、代郡出发。此后四役，人物与战果都据《史记·卫将军骠骑列传》。'},
+ {lv:0,num:'一',name:'八百骠骑',year:'元朔六年 · 公元前123年',troops:800,li:600,H:5200,
+  ground:'#c3ae72',tuft:'#8d8a45',mtn:'#a8975f',
+  intro:'十八岁的霍去病以剽姚校尉随大将军卫青出定襄。他只带八百轻骑，甩开大军数百里，直插匈奴腹地。',
+  marks:[{y:4950,t:'定襄'},{y:3100,t:'漠南'}],
+  objs:[{kind:'boss',name:'籍若侯产',verb:'斩',y:2900,hp:340,guards:5},
+        {kind:'boss',name:'罗姑比',verb:'俘',y:1000,hp:260,guards:6,flee:true}],
+  record:'史载此役斩首虏二千二十八级，斩单于大父行籍若侯产，生捕单于季父罗姑比。武帝以其勇冠全军，封冠军侯。'},
+ {lv:1,num:'二',name:'河西春战',year:'元狩二年春 · 公元前121年',troops:10000,li:1000,H:6400,
+  ground:'#cdb37a',tuft:'#a08d4e',mtn:'#b29a66',
+  intro:'骠骑将军霍去病率万骑出陇西，六日之间转战五个匈奴属国，越过焉支山一千余里。',
+  marks:[{y:6150,t:'陇西'},{y:3000,t:'焉支山',mtn:1}],
+  objs:[{kind:'boss',name:'折兰王',verb:'斩',y:4300,hp:420,guards:6},
+        {kind:'boss',name:'卢侯王',verb:'斩',y:2400,hp:480,guards:7},
+        {kind:'site',name:'休屠王祭天金人',verb:'夺',y:800,guards:9,icon:'idol'}],
+  record:'史载此役首虏八千九百六十级，俘浑邪王子及相国、都尉，收休屠王祭天金人。'},
+ {lv:2,num:'三',name:'祁连山',year:'元狩二年夏 · 公元前121年',troops:30000,li:2000,H:6800,
+  ground:'#b9b08a',tuft:'#7f8a5c',mtn:'#9aa59a',snow:1,
+  intro:'合骑侯公孙敖迷路失期，霍去病孤军深入。他北渡居延泽，再折向南，直攻祁连山。',
+  marks:[{y:6550,t:'北地'},{y:4900,t:'居延泽'},{y:1500,t:'祁连山',mtn:1}],
+  objs:[{kind:'boss',name:'单桓王',verb:'降',y:4200,hp:500,guards:7},
+        {kind:'boss',name:'酋涂王',verb:'降',y:2500,hp:560,guards:8},
+        {kind:'site',name:'祁连山大营',verb:'破',y:800,guards:11,icon:'camp'}],
+  record:'史载此役斩首虏三万二百级，单桓王、酋涂王率众二千五百人降。同年秋，浑邪王率四万余众归汉，河西走廊自此通向西域。匈奴歌曰：“亡我祁连山，使我六畜不蕃息；失我焉支山，使我妇女无颜色。”'},
+ {lv:3,cap:1,num:'四',name:'封狼居胥',year:'元狩四年 · 公元前119年',troops:50000,li:2000,H:8000,
+  ground:'#c9bc98',tuft:'#a39a72',mtn:'#a59a80',
+  intro:'武帝发十万骑，卫青、霍去病各领五万。霍去病出代郡，轻装穿越大漠二千余里，迎击匈奴左贤王。',
+  marks:[{y:7750,t:'代郡'},{y:5600,t:'大漠'},{y:2700,t:'弓闾河'},{y:900,t:'狼居胥山',mtn:1}],
+  objs:[{kind:'boss',name:'比车耆',verb:'诛',y:5900,hp:560,guards:8},
+        {kind:'boss',name:'左大将',verb:'破',y:4100,hp:640,guards:9},
+        {kind:'boss',name:'屯头王',verb:'擒',y:2300,hp:700,guards:10},
+        {kind:'site',name:'狼居胥山',verb:'登',y:650,guards:6,icon:'altar'}],
+  record:'史载此役斩获七万四百四十三级，左贤王弃军远遁。霍去病封狼居胥山，禅于姑衍，登临瀚海。此后“匈奴远遁，而幕南无王庭”。'},
+ {lv:4,num:'终',name:'杭爱山',year:'演义 · 元狩四年',troops:50000,li:1500,H:8000,snow:1,
+  ground:'#b6b488',tuft:'#7c8a58',mtn:'#98a294',
+  intro:'这一役是演义。史书里霍去病止步于狼居胥山与瀚海；同一年追到杭爱山南麓的，是卫青的西路军。这里让骠骑的铁骑继续向西北，追左贤王残部直到杭爱山下。',
+  marks:[{y:7750,t:'狼居胥山'},{y:5700,t:'瀚海'},{y:3300,t:'窴颜山',mtn:1},{y:950,t:'杭爱山',mtn:1}],
+  objs:[{kind:'boss',name:'左贤王',verb:'逐',y:5000,hp:760,guards:10,flee:true},
+        {kind:'boss',name:'王庭大当户',verb:'破',y:2700,hp:720,guards:11},
+        {kind:'site',name:'杭爱山',verb:'登',y:650,guards:8,icon:'altar'}],
+  record:'杭爱山在今蒙古国中部，汉时称燕然山。元狩四年，卫青追单于到它南麓的窴颜山，烧掉赵信城的存粮后班师。两百多年后的东汉永元元年（公元89年），窦宪大破北匈奴，在此刻石记功，就是《封燕然山铭》；2017年，这方摩崖石刻在蒙古国境内被重新确认。'}
+];
+
+const PERKS={
+  bow:{n:'强弓劲弩',d:'箭矢杀伤提高四成',fn:s=>s.arrow*=1.4},
+  volley:{n:'骑射连发',d:'每轮齐射多出一矢',fn:s=>s.multi+=1},
+  light:{n:'轻骑约赍',d:'抛下辎重：马速加一成，粮草消耗减三成',fn:s=>{s.speed*=1.1;s.drain*=.7}},
+  loot:{n:'取食于敌',d:'夺取帐落时，所得粮草与兵员加倍',fn:s=>s.loot*=2},
+  riders:{n:'匈奴降骑',d:'收编归降的骑士：兵力上限提高三成',fn:s=>s.maxHp*=1.3},
+  swift:{n:'突驰如电',d:'突驰的间歇缩短四成',fn:s=>s.dashCd*=.6},
+  armor:{n:'玄甲',d:'所受伤害减少两成',fn:s=>s.armor*=.8}
+};
+
+/* ───────── 基础 ───────── */
+const cv=document.getElementById('stage'),ctx=cv.getContext('2d');
+const $=id=>document.getElementById(id);
+const hud=$('hud'),veil=$('veil'),panel=$('panel'),toast=$('toast'),btnDash=$('btnDash');
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+let vw=0,vh=0,dpr=1,zoom=1;
+function resize(){
+  dpr=Math.min(window.devicePixelRatio||1,2.5);
+  vw=window.innerWidth;vh=window.innerHeight;
+  cv.width=Math.round(vw*dpr);cv.height=Math.round(vh*dpr);
+  zoom=vw<700?1:1.3;
+}
+addEventListener('resize',resize);resize();
+
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+function seeded(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function hash(x,y){const s=Math.sin(x*127.1+y*311.7)*43758.5453;return s-Math.floor(s)}
+
+const G={scene:'title',ch:0,perks:[],total:0,paused:false};
+let S,P,E=[],A=[],FX=[],F=[],camps=[],objs=[],kills=0,time=0,spawnT=0,winT=-1,shake=0,startY=0,minY=0;
+let cam={x:0,y:0};
+
+function save(){try{localStorage.setItem('fljx2',JSON.stringify({ch:G.ch,perks:G.perks,total:G.total}))}catch(e){}}
+function load(){try{const d=JSON.parse(localStorage.getItem('fljx2')||'null');if(d&&d.ch>0&&d.ch<CH.length&&Array.isArray(d.perks))return d}catch(e){}return null}
+
+function stats(){
+  const s={arrow:10,multi:2,speed:172,drain:1,loot:1,maxHp:100,dashCd:5,armor:1};
+  for(const p of G.perks)if(PERKS[p])PERKS[p].fn(s);
+  return s;
+}
+
+/* ───────── 开局布阵 ───────── */
+function mkEnemy(type,x,y,o){
+  const lv=CH[G.ch].lv,d=1+.22*lv;
+  const e={type,x,y,vx:0,vy:0,kx:0,ky:0,face:-1,ph:rnd(0,6),cd:rnd(.4,1.6),side:Math.random()<.5?1:-1,idle:true,hx:x,hy:y,amb:false,r:10,dashHit:0,hurtT:0};
+  if(type==='a'){e.hp=22*d;e.spd=126;e.dmg=2.6*(1+.18*lv)}
+  else if(type==='l'){e.hp=34*d;e.spd=150;e.dmg=4*(1+.18*lv)}
+  else{e.hp=o.hp*d;e.spd=o.flee?152:138;e.dmg=8*(1+.18*lv);e.r=16;e.vol=2;e.name=o.name;e.flee=!!o.flee;e.obj=o}
+  e.maxHp=e.hp;
+  if(o&&o.amb){e.amb=true;e.idle=false}
+  E.push(e);return e;
+}
+function guards(x,y,n,rad){
+  for(let i=0;i<n;i++){const a=i/n*6.283+rnd(-.3,.3),r=rad*rnd(.6,1.1);mkEnemy(i%3===0?'l':'a',x+Math.cos(a)*r,y+Math.sin(a)*r)}
+}
+function startChapter(){
+  const c=CH[G.ch];S=stats();
+  const r=seeded(G.ch*97+13);
+  E=[];A=[];FX=[];camps=[];kills=0;time=0;spawnT=4;winT=-1;
+  P={x:W/2,y:c.H-240,vx:0,vy:0,hx:0,hy:-1,hp:S.maxHp,food:100,dash:0,dashCd:0,face:1,fire:.5,lance:0,hurt:0,ph:0,dashN:0};
+  startY=P.y;minY=P.y;
+  objs=c.objs.map(o=>Object.assign({},o,{done:false,prog:0,x:o.x!=null?(r(),o.x):W/2+(r()-.5)*520}));
+  for(const o of objs){
+    if(o.kind==='boss'){mkEnemy('b',o.x,o.y,o);guards(o.x,o.y,o.guards,120)}
+    else guards(o.x,o.y,o.guards,150);
+  }
+  for(let y=c.H-1000;y>520;y-=700+r()*260){
+    if(objs.some(o=>Math.abs(o.y-y)<330))continue;
+    const x=170+r()*(W-340);
+    camps.push({x,y,taken:false,prog:0});guards(x,y,3,85);
+  }
+  F=[];for(let i=0;i<12;i++)F.push({x:P.x+rnd(-40,40),y:P.y+40+i*8,ph:rnd(0,6),face:1});
+  G.scene='play';G.paused=false;
+  veil.classList.remove('on');hud.classList.add('on');btnDash.classList.add('on');
+  cam.x=P.x;cam.y=P.y;
+  updateHud(true);
+}
+
+/* ───────── 输入 ───────── */
+const keys={};let joy=null;
+addEventListener('keydown',e=>{
+  keys[e.code]=true;
+  if(e.code==='Space'){e.preventDefault();dash()}
+  if(e.code==='KeyP'||e.code==='Escape'){if(G.scene==='play')G.paused?resume():pause()}
+});
+addEventListener('keyup',e=>{keys[e.code]=false});
+cv.addEventListener('pointerdown',e=>{if(G.scene!=='play'||G.paused)return;if(!joy){joy={id:e.pointerId,ox:e.clientX,oy:e.clientY,dx:0,dy:0};try{cv.setPointerCapture(e.pointerId)}catch(_){}}});
+cv.addEventListener('pointermove',e=>{if(joy&&e.pointerId===joy.id){joy.dx=e.clientX-joy.ox;joy.dy=e.clientY-joy.oy;const m=Math.hypot(joy.dx,joy.dy);if(m>56){joy.ox+=joy.dx*(1-56/m);joy.oy+=joy.dy*(1-56/m);joy.dx*=56/m;joy.dy*=56/m}}});
+const endJoy=e=>{if(joy&&e.pointerId===joy.id)joy=null};
+cv.addEventListener('pointerup',endJoy);cv.addEventListener('pointercancel',endJoy);
+btnDash.addEventListener('pointerdown',e=>{e.preventDefault();dash()});
+$('btnPause').addEventListener('click',()=>{if(G.scene==='play')pause()});
+
+function dash(){
+  if(G.scene!=='play'||G.paused||P.dashCd>0)return;
+  P.dash=.9;P.dashCd=S.dashCd;P.dashN++;
+}
+
+/* ───────── 战斗 ───────── */
+function say(t,ms){toast.textContent=t;toast.classList.add('on');clearTimeout(say.t);say.t=setTimeout(()=>toast.classList.remove('on'),ms||1700)}
+function fx(x,y,t,c,big){FX.push({x,y,t,c:c||'#8d1f10',life:big?1.3:.8,max:big?1.3:.8,big:!!big})}
+function hurt(d){
+  if(P.dash>0)return;
+  P.hp-=d*S.armor;P.hurt=.22;if(!reduce)shake=Math.min(6,shake+2.5);
+}
+function hitEnemy(e,d,kx,ky){
+  e.hp-=d;e.hurtT=.12;e.idle=false;e.kx+=kx;e.ky+=ky;
+  if(e.hp<=0&&!e.dead){
+    e.dead=true;kills++;P.food=Math.min(100,P.food+1.2);
+    if(e.type==='b'){
+      e.obj.done=true;fx(e.x,e.y-30,e.obj.verb,'#8d1f10',true);
+      say(e.obj.verb+' '+e.name);
+      for(const g of E)if(!g.dead&&g.type!=='b'&&Math.hypot(g.x-e.x,g.y-e.y)<420){g.rout=true;g.amb=true}
+      checkWin();
+    }else fx(e.x,e.y-14,'斩');
+  }
+}
+function curObj(){for(const o of objs)if(!o.done)return o;return null}
+function checkWin(){if(!curObj()&&winT<0)winT=1.6}
+
+function update(dt){
+  const c=CH[G.ch];time+=dt;
+  /* 霍去病 */
+  let ix=0,iy=0;
+  if(keys.ArrowLeft||keys.KeyA)ix-=1;if(keys.ArrowRight||keys.KeyD)ix+=1;
+  if(keys.ArrowUp||keys.KeyW)iy-=1;if(keys.ArrowDown||keys.KeyS)iy+=1;
+  if(joy){ix=joy.dx/56;iy=joy.dy/56}
+  let m=Math.hypot(ix,iy);if(m>1){ix/=m;iy/=m;m=1}
+  if(m>.12){P.hx=ix/m;P.hy=iy/m}
+  let sp=S.speed*(P.food<=0?.82:1);
+  if(P.dash>0){P.dash-=dt;sp*=2.15;ix=P.hx;iy=P.hy}
+  P.dashCd=Math.max(0,P.dashCd-dt);
+  const k=Math.min(1,dt*9);
+  P.vx+=(ix*sp-P.vx)*k;P.vy+=(iy*sp-P.vy)*k;
+  const py0=P.y;
+  P.x=clamp(P.x+P.vx*dt,30,W-30);P.y=clamp(P.y+P.vy*dt,60,c.H-60);
+  if(c.gateY){const inB=y=>y>c.gateY-22&&y<c.gateY+36;
+    if(inB(py0))P.x=clamp(P.x,W/2-48,W/2+48);
+    else if(inB(P.y)&&Math.abs(P.x-W/2)>48)P.y=py0}
+  if(Math.abs(P.vx)>12)P.face=P.vx>0?1:-1;
+  P.ph+=dt*(4+Math.hypot(P.vx,P.vy)*.075);
+  P.hurt=Math.max(0,P.hurt-dt);
+  minY=Math.min(minY,P.y);
+  if(!c.peace)P.food=Math.max(0,P.food-dt*1.65*S.drain);
+  if(P.food<=0)P.hp-=dt*1.5;
+
+  /* 骑射 */
+  P.fire-=dt;
+  if(P.fire<=0){
+    const near=[];
+    for(const e of E){if(e.dead)continue;const d=Math.hypot(e.x-P.x,e.y-P.y);if(d<255)near.push([d,e])}
+    if(near.length){
+      near.sort((a,b)=>a[0]-b[0]);
+      for(let i=0;i<S.multi;i++){
+        const [d,e]=near[i%near.length];const t=d/520;
+        const tx=e.x+e.vx*t,ty=e.y+e.vy*t,a=Math.atan2(ty-P.y,tx-P.x)+(i>=near.length?rnd(-.12,.12):0);
+        A.push({x:P.x,y:P.y-10,vx:Math.cos(a)*520,vy:Math.sin(a)*520,dmg:S.arrow,f:true,life:.62});
+      }
+      P.fire=.55;
+    }else P.fire=.12;
+  }
+  /* 长矛与突驰 */
+  P.lance-=dt;
+  const lance=P.lance<=0;if(lance)P.lance=.34;
+  for(const e of E){
+    if(e.dead)continue;
+    const dx=e.x-P.x,dy=e.y-P.y,d=Math.hypot(dx,dy)||1;
+    if(P.dash>0&&d<38+e.r&&e.dashHit!==P.dashN){e.dashHit=P.dashN;hitEnemy(e,46,dx/d*330,dy/d*330);if(!reduce)shake=Math.min(6,shake+1.5)}
+    else if(lance&&d<34+e.r)hitEnemy(e,12,dx/d*120,dy/d*120);
+  }
+
+  /* 匈奴骑兵 */
+  const diag=Math.hypot(vw,vh)/2/zoom;
+  for(const e of E){
+    if(e.dead)continue;
+    const dx=P.x-e.x,dy=P.y-e.y,d=Math.hypot(dx,dy)||1;
+    e.cd-=dt;e.hurtT=Math.max(0,e.hurtT-dt);
+    let ax=0,ay=0;
+    if(e.idle){if(d<450)e.idle=false;else{ax=Math.cos(time*.6+e.ph)*.15;ay=Math.sin(time*.5+e.ph)*.15}}
+    if(!e.idle){
+      if(e.rout){ax=-dx/d;ay=-dy/d}
+      else if(e.type==='a'){
+        if(d>205){ax=dx/d;ay=dy/d}else if(d<125){ax=-dx/d;ay=-dy/d}else{ax=-dy/d*e.side;ay=dx/d*e.side}
+        if(d<300&&e.cd<=0){
+          e.cd=rnd(1.7,2.4);const a=Math.atan2(dy,dx)+rnd(-.1,.1);
+          A.push({x:e.x,y:e.y-10,vx:Math.cos(a)*250,vy:Math.sin(a)*250,dmg:e.dmg,f:false,life:1.5});
+        }
+      }else if(e.flee){
+        if(d<430){ax=-dx/d;ay=-dy/d}
+        const hx=e.hx-e.x,hy=e.hy-e.y,hd=Math.hypot(hx,hy);
+        if(hd>520){ax+=hx/hd*.9;ay+=hy/hd*.9}
+      }else{
+        ax=dx/d;ay=dy/d;
+        if(d<22+e.r&&e.cd<=0){hurt(e.dmg);e.cd=.8;e.kx-=dx/d*160;e.ky-=dy/d*160}
+        if(e.type==='b'){
+          e.vol-=dt;
+          if(e.vol<=0&&d<380){e.vol=2.6;const b=Math.atan2(dy,dx);
+            for(let i=-2;i<=2;i++)A.push({x:e.x,y:e.y-12,vx:Math.cos(b+i*.16)*260,vy:Math.sin(b+i*.16)*260,dmg:e.dmg*.5,f:false,life:1.6})}
+        }
+      }
+    }
+    const kk=Math.min(1,dt*4);
+    e.vx+=(ax*e.spd-e.vx)*kk;e.vy+=(ay*e.spd-e.vy)*kk;
+    e.kx*=Math.pow(.02,dt);e.ky*=Math.pow(.02,dt);
+    e.x=clamp(e.x+(e.vx+e.kx)*dt,20,W-20);e.y=clamp(e.y+(e.vy+e.ky)*dt,40,c.H-40);
+    if(Math.abs(e.vx)>10)e.face=e.vx>0?1:-1;
+    e.ph+=dt*(3+Math.hypot(e.vx,e.vy)*.08);
+    if(e.amb&&d>Math.max(950,diag+500))e.dead=true;
+  }
+  /* 互不重叠 */
+  for(let i=0;i<E.length;i++){const a=E[i];if(a.dead)continue;
+    for(let j=i+1;j<E.length;j++){const b=E[j];if(b.dead)continue;
+      const dx=b.x-a.x,dy=b.y-a.y;if(Math.abs(dx)>30||Math.abs(dy)>30)continue;
+      const d=Math.hypot(dx,dy)||1,min=a.r+b.r+4;
+      if(d<min){const p=(min-d)/2;a.x-=dx/d*p;a.y-=dy/d*p;b.x+=dx/d*p;b.y+=dy/d*p}}}
+  E=E.filter(e=>!e.dead);
+
+  /* 游骑不断赶来 */
+  spawnT-=dt;
+  if(spawnT<=0&&winT<0&&!c.peace){
+    const lv=c.lv;spawnT=Math.max(1.9,3.1-.3*lv);
+    let amb=0;for(const e of E)if(e.amb&&!e.rout)amb++;
+    if(amb<9+3*lv){
+      const n=2+Math.floor(rnd(0,1.6+lv*.5)),a=-Math.PI/2+rnd(-1.9,1.9),r=diag+50;
+      const bx=clamp(P.x+Math.cos(a)*r,40,W-40),by=clamp(P.y+Math.sin(a)*r,60,c.H-60);
+      if(Math.hypot(bx-P.x,by-P.y)>diag*.8)
+        for(let i=0;i<n;i++)mkEnemy(Math.random()<.42?'l':'a',bx+rnd(-45,45),by+rnd(-45,45),{amb:true});
+    }
+  }
+
+  /* 箭 */
+  for(const a of A){
+    a.life-=dt;a.x+=a.vx*dt;a.y+=a.vy*dt;
+    if(a.f){for(const e of E){if(Math.abs(e.x-a.x)<e.r+8&&Math.abs(e.y-8-a.y)<e.r+10){hitEnemy(e,a.dmg,a.vx*.1,a.vy*.1);a.life=0;break}}}
+    else if(Math.abs(P.x-a.x)<12&&Math.abs(P.y-8-a.y)<14){hurt(a.dmg);a.life=0}
+  }
+  A=A.filter(a=>a.life>0);
+
+  /* 帐落：取食于敌 */
+  for(const cp of camps){
+    if(cp.taken)continue;
+    if(Math.hypot(cp.x-P.x,cp.y-P.y)<62){cp.prog+=dt;if(cp.prog>.7){cp.taken=true;P.food=Math.min(100,P.food+45*S.loot);P.hp=Math.min(S.maxHp,P.hp+13*S.loot);fx(cp.x,cp.y-26,'得粮','#7a5a12',true)}}
+    else cp.prog=Math.max(0,cp.prog-dt);
+  }
+  /* 据点 */
+  const co=curObj();
+  for(const o of objs){
+    if(o.kind!=='site'||o.done)continue;
+    if(Math.hypot(o.x-P.x,o.y-P.y)<84){
+      if(o===co){o.prog+=dt;if(o.prog>1.6){o.done=true;fx(o.x,o.y-40,o.verb,'#8d1f10',true);say(o.verb+' '+o.name);checkWin()}}
+    }else o.prog=Math.max(0,o.prog-dt*2);
+  }
+
+  /* 随骑 */
+  const want=clamp(Math.ceil(P.hp/100*9),0,12);
+  for(let i=0;i<F.length;i++){
+    const f=F[i];f.on=i<want;
+    const row=Math.floor((Math.sqrt(8*i+1)-1)/2)+1,col=i-(row-1)*row/2-(row-1)/2;
+    const tx=P.x-P.hx*row*25-P.hy*col*27,ty=P.y-P.hy*row*25+P.hx*col*27;
+    const ox=f.x;f.x+=(tx-f.x)*Math.min(1,dt*(4.5-row*.5));f.y+=(ty-f.y)*Math.min(1,dt*(4.5-row*.5));
+    if(Math.abs(f.x-ox)>.25)f.face=f.x>ox?1:-1;
+    f.ph+=dt*(4+Math.hypot(P.vx,P.vy)*.075);
+  }
+  for(const p of FX){p.life-=dt;p.y-=dt*(p.big?22:34)}
+  FX=FX.filter(p=>p.life>0);
+  shake=Math.max(0,shake-dt*14);
+
+  if(P.hp<=0){P.hp=0;lose();return}
+  if(winT>=0){winT-=dt;if(winT<=0){win();return}}
+  updateHud();
+}
+
+/* ───────── 界面 ───────── */
+let hudT=0;
+function updateHud(force){
+  hudT++;if(!force&&hudT%6)return;
+  const c=CH[G.ch];
+  $('mHp').querySelector('u').style.transform='scaleX('+clamp(P.hp/S.maxHp,0,1)+')';
+  $('mFood').querySelector('u').style.transform='scaleX('+P.food/100+')';
+  $('tHp').textContent=Math.max(0,Math.ceil(P.hp/100*c.troops)).toLocaleString('en-US')+' 骑';
+  $('tFood').textContent=P.food<=0?'断粮':P.food<30?'将尽':P.food<70?'尚可':'充足';
+  const o=curObj(),li=Math.round((startY-minY)/(startY-600)*c.li);
+  $('goal').innerHTML=(o?o.verb+o.name:'大捷')+'<small>奔袭 '+Math.min(c.li,Math.max(0,li))+' 里 · 斩获 '+kills+'</small>';
+  btnDash.dataset.cd=P.dashCd>0?'1':'0';
+}
+function show(html){panel.innerHTML=html;veil.classList.add('on');panel.scrollTop=0;const b=panel.querySelector('.btn');if(b&&matchMedia('(hover:hover)').matches)b.focus({preventScroll:true})}
+function hideHud(){hud.classList.remove('on');btnDash.classList.remove('on');joy=null}
+
+function title(){
+  G.scene='title';hideHud();
+  const sv=load();
+  show('<div class="eyebrow">西汉 · 骠骑将军霍去病</div><h1>封狼居胥</h1>'+
+  '<p class="quote">“匈奴未灭，无以家为也。”</p>'+
+  '<p>从函谷关下受命，到蒙古高原上的杭爱山。四场史载战役，加一头一尾两段演义，重走骠骑将军的征途。</p>'+
+  '<div class="btns"><button class="btn" data-act="new" type="button">出征</button>'+
+  (sv?'<button class="btn ghost" data-act="cont" type="button">续战 · '+CH[sv.ch].name+'</button>':'')+'</div>'+
+  '<p class="note">拖动屏幕策马（或用方向键 / WASD），骑射自动放箭；按“突驰”（空格）可冲散敌阵。粮草靠夺取匈奴帐落补给。</p>');
+}
+function intro(){
+  G.scene='intro';hideHud();const c=CH[G.ch];save();
+  show('<div class="eyebrow">'+c.year+'</div>'+
+  '<div class="head"><div class="seal">'+c.num+'</div><h2>'+c.name+'</h2></div>'+
+  '<p>'+c.intro+'</p>'+
+  '<ul class="goals">'+c.objs.map(o=>'<li>'+o.verb+o.name+'</li>').join('')+'</ul>'+
+  '<div class="stats"><div><b>'+c.troops.toLocaleString('en-US')+'</b>所部骑兵</div><div><b>'+c.li.toLocaleString('en-US')+'</b>里奔袭</div></div>'+
+  '<div class="btns"><button class="btn" data-act="go" type="button">上马</button></div>');
+}
+function win(){
+  G.scene='win';hideHud();const c=CH[G.ch];G.total+=kills;
+  const last=G.ch===CH.length-1;
+  show('<div class="eyebrow">'+c.year+(c.peace?' · 受命':' · 大捷')+'</div>'+
+  '<div class="head"><div class="seal">'+(c.peace?'命':'捷')+'</div><h2>'+c.name+'</h2></div>'+
+  '<div class="record">'+c.record+'</div>'+
+  (c.peace?'':'<div class="stats"><div><b>'+kills+'</b>本役斩获</div><div><b>'+Math.ceil(P.hp/100*c.troops).toLocaleString('en-US')+'</b>余部骑兵</div></div>')+
+  '<div class="btns"><button class="btn" data-act="'+(last?'end':c.peace?'next':'perk')+'" type="button">'+(last?'勒石':c.peace?'出塞':'整军')+'</button></div>');
+}
+function perkPick(){
+  G.scene='perk';
+  const pool=Object.keys(PERKS).filter(k=>!G.perks.includes(k));
+  for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]]}
+  show('<div class="eyebrow">战后整军</div><h2>择一而行</h2><div class="perks">'+
+  pool.slice(0,3).map(k=>'<button class="perk" type="button" data-act="take" data-k="'+k+'"><strong>'+PERKS[k].n+'</strong><span>'+PERKS[k].d+'</span></button>').join('')+'</div>');
+}
+function lose(){
+  G.scene='lose';hideHud();
+  show('<div class="eyebrow">'+CH[G.ch].year+'</div><div class="head"><div class="seal">挫</div><h2>兵锋受挫</h2></div>'+
+  '<p>史书上的霍去病六击匈奴，未尝一败。重整旗鼓，再走一遍这条路。</p>'+
+  '<p class="note">粮草将尽时，沿金色箭头去夺帐落；被围时用突驰冲出，突驰途中不受伤。</p>'+
+  '<div class="btns"><button class="btn" data-act="go" type="button">再战</button><button class="btn ghost" data-act="title" type="button">回到卷首</button></div>');
+}
+function ending(){
+  G.scene='end';
+  try{localStorage.removeItem('fljx2')}catch(e){}
+  show('<div class="eyebrow">函谷关 — 狼居胥山 — 杭爱山</div><h1>瀚海</h1>'+
+  '<p>史书上的终点在狼居胥山：霍去病在那里筑坛祭天，在姑衍山祭地，一直走到瀚海边上。那一年他不过二十出头。</p>'+
+  '<p>两年后的元狩六年（公元前117年），霍去病病逝，年约二十四岁。武帝调属国铁甲军列阵送葬，从长安直排到茂陵，并把他的坟冢修成祁连山的形状。</p>'+
+  '<div class="stats"><div><b>'+G.total+'</b>四役斩获</div><div><b>'+G.perks.length+'</b>项整军之策</div></div>'+
+  '<div class="btns"><button class="btn" data-act="new" type="button">再走一遍</button></div>');
+}
+function pause(){
+  G.paused=true;joy=null;
+  show('<div class="eyebrow">'+CH[G.ch].name+'</div><h2>勒马</h2>'+
+  '<div class="btns"><button class="btn" data-act="resume" type="button">继续</button><button class="btn ghost" data-act="title" type="button">回到卷首</button></div>');
+}
+function resume(){G.paused=false;veil.classList.remove('on')}
+
+panel.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');if(!b)return;
+  const a=b.dataset.act;
+  if(a==='new'){G.ch=0;G.perks=[];G.total=0;intro()}
+  else if(a==='cont'){const d=load();if(d){G.ch=d.ch;G.perks=d.perks.filter(k=>PERKS[k]);G.total=d.total||0}intro()}
+  else if(a==='go')startChapter();
+  else if(a==='perk')perkPick();
+  else if(a==='take'){G.perks.push(b.dataset.k);G.ch++;intro()}
+  else if(a==='next'){G.ch++;intro()}
+  else if(a==='end')ending();
+  else if(a==='title')title();
+  else if(a==='resume')resume();
+});
+
+/* ───────── 绘制 ───────── */
+function ell(x,y,rx,ry,rot){ctx.beginPath();ctx.ellipse(x,y,rx,ry,rot||0,0,6.2832);ctx.fill()}
+function seg(a,b,c,d){ctx.beginPath();ctx.moveTo(a,b);ctx.lineTo(c,d);ctx.stroke()}
+const HAN={horse:'#5a3a26',coat:'#b3301b',hat:'han'};
+const HERO={horse:'#1c1410',coat:'#d0412a',hat:'han',flag:'#c53a21',hero:1};
+const XA={horse:'#6f5a43',coat:'#3d3f3c',hat:'hu',bow:1};
+const XL={horse:'#3a2a20',coat:'#4a3b2e',hat:'hu'};
+const XB={horse:'#23201d',coat:'#2e4a4f',hat:'hu',flag:'#23201d'};
+function rider(x,y,f,ph,st,s,flash){
+  ctx.save();ctx.translate(x,y);ctx.scale(f*s,s);
+  ctx.fillStyle='rgba(50,32,12,.2)';ell(0,10,14,3.6);
+  const g=Math.sin(ph)*5;
+  ctx.strokeStyle=flash?'#fff':st.horse;ctx.lineWidth=2.3;ctx.lineCap='round';
+  seg(-8,2,-10-g,10);seg(-5,2,-4+g,10);seg(6,2,5-g,10);seg(8,2,11+g,10);
+  seg(-11,-3,-17,1+g*.3);
+  ctx.fillStyle=flash?'#fff':st.horse;ell(0,-1,11.5,5.2);
+  ctx.beginPath();ctx.moveTo(6,-4);ctx.lineTo(12,-12);ctx.lineTo(16,-10);ctx.lineTo(11,1);ctx.fill();
+  ell(16.5,-10.5,4.4,2.3,.5);
+  if(st.flag){ctx.strokeStyle='#2a1a12';ctx.lineWidth=1.3;seg(-4,-8,-6,-36);
+    ctx.fillStyle=st.flag;const w=Math.sin(ph*.7)*2;ctx.beginPath();ctx.moveTo(-6,-36);ctx.lineTo(-22,-33+w);ctx.lineTo(-21,-24-w);ctx.lineTo(-5.5,-26);ctx.fill()}
+  ctx.fillStyle=flash?'#fff':st.coat;ctx.fillRect(-3.4,-13,6.8,10.5);
+  ctx.fillStyle='#e3c49a';ell(0,-16,3.1,3.1);
+  if(st.hat==='han'){ctx.fillStyle='#1a1210';ctx.fillRect(-3.4,-20,6.8,2.6);ctx.fillRect(-1,-22.5,2.2,3);
+    if(st.hero){ctx.strokeStyle='#c53a21';ctx.lineWidth=1.6;seg(0,-22,-5,-25)}}
+  else{ctx.fillStyle='#d9cfbd';ctx.beginPath();ctx.moveTo(-3.8,-17.5);ctx.lineTo(0,-24.5);ctx.lineTo(3.8,-17.5);ctx.fill()}
+  if(st.bow){ctx.strokeStyle='#2a1a12';ctx.lineWidth=1.4;ctx.beginPath();ctx.arc(5,-11,7,-1.25,1.25);ctx.stroke()}
+  else{ctx.strokeStyle='#2a1a12';ctx.lineWidth=1.4;seg(-6,-5,21,-19);
+    if(st.hat==='han'){ctx.fillStyle='#c53a21';ell(17,-17,2.2,2.2)}}
+  ctx.restore();
+}
+function tent(x,y,s,taken){
+  ctx.save();ctx.translate(x,y);ctx.scale(s,s);
+  ctx.fillStyle='rgba(50,32,12,.2)';ell(0,9,26,6);
+  ctx.fillStyle=taken?'#9d9479':'#e9dfc8';ctx.beginPath();ctx.moveTo(-22,8);ctx.lineTo(-22,-4);ctx.quadraticCurveTo(0,-26,22,-4);ctx.lineTo(22,8);ctx.fill();
+  ctx.strokeStyle=taken?'#6d664f':'#7a4a2a';ctx.lineWidth=2;seg(-22,-4,22,-4);
+  ctx.fillStyle=taken?'#6d664f':'#3a2a20';ctx.fillRect(-4,-3,8,11);
+  ctx.restore();
+}
+function vtext(t,x,y,size,col){
+  ctx.font=size+'px "Ma Shan Zheng","Kaiti SC",STKaiti,KaiTi,serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=col;
+  for(let i=0;i<t.length;i++)ctx.fillText(t[i],x,y+i*size*1.08);
+}
+function drawGround(c,x0,y0,x1,y1){
+  ctx.fillStyle=c.ground;ctx.fillRect(x0,y0,x1-x0,y1-y0);
+  const cs=110;ctx.lineCap='round';
+  for(let gy=Math.floor(y0/cs);gy<=Math.floor(y1/cs);gy++)for(let gx=Math.floor(x0/cs);gx<=Math.floor(x1/cs);gx++){
+    const h=hash(gx,gy+G.ch*57),px=gx*cs+hash(gy,gx)*cs,py=gy*cs+h*cs;
+    if(h<.5){ctx.strokeStyle=c.tuft;ctx.lineWidth=1.4;ctx.globalAlpha=.75;seg(px,py,px-4,py-8);seg(px+3,py,px+3,py-10);seg(px+6,py,px+10,py-7);ctx.globalAlpha=1}
+    else if(h<.68){ctx.fillStyle='rgba(70,50,25,.22)';ell(px,py,5+h*4,3)}
+    else if(c.snow&&h<.8){ctx.fillStyle='rgba(255,255,255,.5)';ell(px,py,9,4)}
+  }
+  /* 地界：帛图上的山与题记 */
+  for(const mk of c.marks){
+    if(mk.y<y0-260||mk.y>y1+260)continue;
+    if(mk.mtn){
+      for(let i=0;i<16;i++){
+        const h=hash(i,mk.y),bx=i*88-20,ph=70+h*80,by=mk.y+hash(mk.y,i)*40;
+        if(Math.abs(bx-W/2)<150&&h>.3)continue;
+        ctx.fillStyle=c.mtn;ctx.beginPath();ctx.moveTo(bx-60,by);ctx.lineTo(bx,by-ph);ctx.lineTo(bx+66,by);ctx.fill();
+        ctx.fillStyle='rgba(60,45,25,.18)';ctx.beginPath();ctx.moveTo(bx,by-ph);ctx.lineTo(bx+66,by);ctx.lineTo(bx+12,by);ctx.fill();
+        if(c.snow||c.cap){ctx.fillStyle='rgba(255,252,240,.85)';ctx.beginPath();ctx.moveTo(bx,by-ph);ctx.lineTo(bx-17,by-ph+26);ctx.lineTo(bx-4,by-ph+19);ctx.lineTo(bx+6,by-ph+29);ctx.lineTo(bx+19,by-ph+26);ctx.fill()}
+      }
+    }
+    const lx=mk.mtn?W/2-90:130+hash(mk.y,3)*120;
+    ctx.fillStyle='rgba(197,58,33,.16)';ctx.fillRect(lx-30,mk.y-34,60,mk.t.length*48+20);
+    ctx.strokeStyle='rgba(141,31,16,.5)';ctx.lineWidth=1.5;ctx.strokeRect(lx-30,mk.y-34,60,mk.t.length*48+20);
+    vtext(mk.t,lx,mk.y,44,'rgba(120,28,14,.78)');
+  }
+  /* 北缘与南缘 */
+  ctx.fillStyle='rgba(23,16,13,.5)';if(y0<40)ctx.fillRect(x0,y0,x1-x0,40-y0);if(y1>c.H-40)ctx.fillRect(x0,c.H-40,x1-x0,y1-c.H+40);
+}
+function ring(x,y,r,p,col){
+  ctx.strokeStyle='rgba(23,16,13,.25)';ctx.lineWidth=3;ctx.setLineDash([6,7]);ctx.beginPath();ctx.arc(x,y,r,0,6.2832);ctx.stroke();ctx.setLineDash([]);
+  if(p>0){ctx.strokeStyle=col;ctx.lineWidth=4;ctx.beginPath();ctx.arc(x,y,r,-1.5708,-1.5708+6.2832*Math.min(1,p));ctx.stroke()}
+}
+function drawSite(o){
+  const x=o.x,y=o.y;
+  if(o.icon==='idol'){
+    tent(x-70,y-20,1.1,o.done);tent(x+74,y-10,1.1,o.done);
+    ctx.fillStyle='#6b5a44';ctx.fillRect(x-20,y-2,40,12);
+    if(!o.done){ctx.fillStyle='#e0b23c';ctx.fillRect(x-7,y-30,14,28);ell(x,y-37,8,8);ctx.fillRect(x-15,y-26,30,6);
+      ctx.fillStyle='rgba(255,236,170,.35)';ell(x,y-22,30+Math.sin(time*3)*4,34)}
+  }else if(o.icon==='emperor'){
+    ctx.fillStyle='#7a6444';ctx.fillRect(x-58,y+4,116,14);ctx.fillStyle='#8f1f12';ctx.fillRect(x-50,y-2,100,8);
+    rider(x-84,y+16,1,0,HAN,1);rider(x+84,y+16,-1,0,HAN,1);
+    ctx.strokeStyle='#2a1a12';ctx.lineWidth=2.5;seg(x+16,y,x+16,y-66);
+    ctx.fillStyle='#d8ab3c';ctx.beginPath();ctx.moveTo(x-30,y-58);ctx.quadraticCurveTo(x+16,y-86,x+62,y-58);ctx.lineTo(x+62,y-52);ctx.lineTo(x-30,y-52);ctx.fill();
+    ctx.fillStyle='#8f1f12';for(let i=0;i<6;i++)ctx.fillRect(x-28+i*17,y-52,5,8+Math.sin(time*3+i)*1.5);
+    ctx.fillStyle='#16110f';ctx.beginPath();ctx.moveTo(x-13,y-2);ctx.lineTo(x-9,y-30);ctx.lineTo(x+9,y-30);ctx.lineTo(x+13,y-2);ctx.fill();
+    ctx.fillStyle='#b3301b';ctx.fillRect(x-2,y-30,4,28);
+    ctx.fillStyle='#e3c49a';ell(x,y-35,5,5);
+    ctx.fillStyle='#16110f';ctx.fillRect(x-9,y-43,18,3);ctx.fillRect(x-4,y-41,8,3);
+    ctx.strokeStyle='#d8ab3c';ctx.lineWidth=1;seg(x-8,y-40,x-8,y-35);seg(x+8,y-40,x+8,y-35);
+  }else if(o.icon==='gate'){
+    const g=56,wy=y-22;
+    ctx.fillStyle='rgba(50,32,12,.2)';ctx.fillRect(0,wy+52,W/2-g,8);ctx.fillRect(W/2+g,wy+52,W/2-g,8);
+    ctx.fillStyle='#96794f';ctx.fillRect(0,wy,W/2-g,54);ctx.fillRect(W/2+g,wy,W/2-g,54);
+    ctx.fillStyle='#7d6340';for(let i=0;i<W;i+=26){if(Math.abs(i+7-W/2)<g+8)continue;ctx.fillRect(i,wy-9,14,9)}
+    ctx.fillStyle='rgba(60,40,20,.25)';ctx.fillRect(0,wy+36,W/2-g,3);ctx.fillRect(W/2+g,wy+36,W/2-g,3);
+    for(const sd of[-1,1]){const tx=x+sd*(g+22);
+      ctx.fillStyle='#86693f';ctx.fillRect(tx-24,wy-30,48,84);
+      ctx.fillStyle='#8f1f12';ctx.fillRect(tx-20,wy-58,40,28);
+      ctx.fillStyle='#211815';ctx.beginPath();ctx.moveTo(tx-36,wy-56);ctx.lineTo(tx,wy-78);ctx.lineTo(tx+36,wy-56);ctx.fill();
+      ctx.beginPath();ctx.moveTo(tx-32,wy-28);ctx.lineTo(tx-24,wy-36);ctx.lineTo(tx+24,wy-36);ctx.lineTo(tx+32,wy-28);ctx.fill()}
+    ctx.strokeStyle='#2a1a12';ctx.lineWidth=2;seg(x-g-22,wy-78,x-g-22,wy-112);
+    ctx.fillStyle='#c53a21';const w=Math.sin(time*4)*3;ctx.beginPath();ctx.moveTo(x-g-22,wy-112);ctx.lineTo(x-g+8,wy-108+w);ctx.lineTo(x-g+6,wy-94-w);ctx.lineTo(x-g-22,wy-96);ctx.fill();
+  }else if(o.icon==='camp'){
+    tent(x-80,y+10,1.2,o.done);tent(x+80,y+6,1.2,o.done);tent(x,y-34,1.7,o.done);
+  }else{
+    ctx.fillStyle='#8e866f';ctx.beginPath();ctx.moveTo(x-150,y+30);ctx.lineTo(x-20,y-130);ctx.lineTo(x+40,y-70);ctx.lineTo(x+90,y-110);ctx.lineTo(x+170,y+30);ctx.fill();
+    ctx.fillStyle='rgba(255,252,240,.9)';ctx.beginPath();ctx.moveTo(x-20,y-130);ctx.lineTo(x-46,y-98);ctx.lineTo(x-22,y-106);ctx.lineTo(x-4,y-92);ctx.lineTo(x+10,y-100);ctx.fill();
+    ctx.fillStyle='#5b4a36';ctx.fillRect(x-26,y+2,52,12);ctx.fillRect(x-18,y-8,36,10);
+    if(o.done){ctx.strokeStyle='#2a1a12';ctx.lineWidth=2;seg(x,y-8,x,y-64);ctx.fillStyle='#c53a21';const w=Math.sin(time*4)*3;ctx.beginPath();ctx.moveTo(x,y-64);ctx.lineTo(x+32,y-60+w);ctx.lineTo(x+30,y-44-w);ctx.lineTo(x,y-46);ctx.fill();
+      ctx.fillStyle='rgba(80,80,80,.35)';ell(x+Math.sin(time)*6,y-30-((time*20)%40),7,9)}
+  }
+  if(!o.done&&o===curObj())ring(x,y,84,o.prog/1.6,'#c53a21');
+}
+function label(e){
+  const w=Math.max(40,e.name.length*13);
+  ctx.font='600 12px "Noto Serif SC",serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillStyle='rgba(23,16,13,.85)';ctx.fillRect(e.x-w/2-5,e.y-66,w+10,17);
+  ctx.fillStyle='#ecdcb8';ctx.fillText(e.name,e.x,e.y-57);
+  ctx.fillStyle='#17100d';ctx.fillRect(e.x-24,e.y-47,48,5);
+  ctx.fillStyle='#c53a21';ctx.fillRect(e.x-23,e.y-46,46*clamp(e.hp/e.maxHp,0,1),3);
+}
+function pointer(wx,wy,txt,col,cx,cy,vW,vH){
+  const sx=(wx-cx)*zoom+vw/2,sy=(wy-cy)*zoom+vh/2;
+  const L=30,R=vw-30,T=118,B=vh-130;
+  if(sx>L&&sx<R&&sy>T&&sy<B)return;
+  const px=clamp(sx,L,R),py=clamp(sy,T,B),a=Math.atan2(sy-py,sx-px);
+  ctx.save();ctx.translate(px,py);
+  ctx.save();ctx.rotate(a);ctx.fillStyle=col;ctx.strokeStyle='#17100d';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(16,0);ctx.lineTo(-8,-11);ctx.lineTo(-3,0);ctx.lineTo(-8,11);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();
+  ctx.font='600 12px "Noto Serif SC",serif';ctx.textBaseline='middle';
+  const tw=ctx.measureText(txt).width,tx=clamp(-Math.cos(a)*24-tw/2,L-px,R-px-tw),ty=-Math.sin(a)*24+(Math.abs(Math.sin(a))<.5?-18:0);
+  ctx.fillStyle='rgba(23,16,13,.85)';ctx.fillRect(tx-5,ty-10,tw+10,20);ctx.fillStyle='#ecdcb8';ctx.textAlign='left';ctx.fillText(txt,tx,ty);
+  ctx.restore();
+}
+
+let demoY=0;
+function draw(){
+  const c=CH[G.scene==='title'?1:G.scene==='end'?CH.length-1:G.ch];
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const vW=vw/zoom,vH=vh/zoom;
+  const inPlay=P&&(G.scene==='play'||G.scene==='win'||G.scene==='lose'||G.scene==='perk');
+  let cx,cy;
+  if(inPlay){
+    cam.x+=(P.x-cam.x)*.14;cam.y+=(P.y-vH*.1-cam.y)*.14;
+    cx=clamp(cam.x,Math.min(vW/2,W/2),Math.max(W-vW/2,W/2));cy=clamp(cam.y,vH/2-80,c.H-vH/2+80);
+  }else{cx=W/2;cy=c.H-600-(demoY%3200)}
+  const sx=shake?rnd(-shake,shake):0,sy=shake?rnd(-shake,shake):0;
+  ctx.save();ctx.translate(vw/2+sx,vh/2+sy);ctx.scale(zoom,zoom);ctx.translate(-cx,-cy);
+  const x0=cx-vW/2-10,y0=cy-vH/2-10,x1=cx+vW/2+10,y1=cy+vH/2+10;
+  drawGround(c,x0,y0,x1,y1);
+
+  if(inPlay){
+    for(const cp of camps){if(cp.y<y0-60||cp.y>y1+60)continue;tent(cp.x,cp.y,1,cp.taken);
+      if(!cp.taken){ctx.fillStyle='#efe6d2';ell(cp.x+34,cp.y+8,5,3.4);ell(cp.x+44,cp.y+2,5,3.4);ell(cp.x-36,cp.y+10,5,3.4);ring(cp.x,cp.y,62,cp.prog/.7,'#cfa650')}}
+    for(const o of objs)if(o.kind==='site'&&o.y>y0-200&&o.y<y1+200)drawSite(o);
+    const list=[];
+    for(const e of E)if(e.y>y0-40&&e.y<y1+60&&e.x>x0-40&&e.x<x1+40)list.push(e);
+    for(const f of F)if(f.on)list.push(f);
+    list.push(P);list.sort((a,b)=>a.y-b.y);
+    for(const u of list){
+      if(u===P){
+        if(P.dash>0){ctx.globalAlpha=.3;rider(P.x-P.vx*.05,P.y-P.vy*.05,P.face,P.ph,HERO,1.25);rider(P.x-P.vx*.1,P.y-P.vy*.1,P.face,P.ph,HERO,1.25);ctx.globalAlpha=1}
+        rider(P.x,P.y,P.face,P.ph,HERO,1.25,P.hurt>0);
+      }else if(u.type==='b'){rider(u.x,u.y,u.face,u.ph,XB,1.45,u.hurtT>0);label(u)}
+      else if(u.type)rider(u.x,u.y,u.face,u.ph,u.type==='a'?XA:XL,1,u.hurtT>0);
+      else rider(u.x,u.y,u.face,u.ph,HAN,1);
+    }
+    ctx.lineCap='round';
+    for(const a of A){const m=Math.hypot(a.vx,a.vy);ctx.strokeStyle=a.f?'#7d1f10':'#1c1714';ctx.lineWidth=a.f?2:1.8;seg(a.x,a.y,a.x-a.vx/m*13,a.y-a.vy/m*13)}
+    for(const p of FX){ctx.globalAlpha=clamp(p.life/p.max*1.6,0,1);vtext(p.t,p.x-(p.t.length>1?0:0),p.y,p.big?34:17,p.c);ctx.globalAlpha=1}
+  }else{
+    const py=cy-vH*.3;
+    for(let i=11;i>=0;i--){const row=Math.floor((Math.sqrt(8*i+1)-1)/2)+1,col=i-(row-1)*row/2-(row-1)/2;rider(W/2+col*30,py+row*26,1,demoY*.09+i,HAN,1)}
+    rider(W/2,py,1,demoY*.09,HERO,1.25);
+  }
+  ctx.restore();
+
+  if(G.scene==='play'){
+    const o=curObj();
+    if(o){let tx=o.x,ty=o.y;if(o.kind==='boss'){const b=E.find(e=>e.obj===o);if(b){tx=b.x;ty=b.y}}pointer(tx,ty,o.verb+o.name,'#c53a21',cx,cy)}
+    if(P.food<45){let best=null,bd=1e9;for(const cp of camps){if(cp.taken)continue;const d=Math.hypot(cp.x-P.x,cp.y-P.y);if(d<bd){bd=d;best=cp}}if(best)pointer(best.x,best.y,'帐落 · 粮','#cfa650',cx,cy)}
+    /* 行程 */
+    const mx=vw-9,t0=128,t1=vh-140;
+    ctx.strokeStyle='rgba(23,16,13,.55)';ctx.lineWidth=3;ctx.lineCap='round';seg(mx,t0,mx,t1);
+    for(const ob of objs){const yy=t0+(ob.y/c.H)*(t1-t0);ctx.fillStyle=ob.done?'rgba(23,16,13,.6)':'#c53a21';ctx.save();ctx.translate(mx,yy);ctx.rotate(.785);ctx.fillRect(-4,-4,8,8);ctx.restore()}
+    ctx.fillStyle='#fff3da';ctx.strokeStyle='#17100d';ctx.lineWidth=1.5;const yy=t0+(P.y/c.H)*(t1-t0);ctx.beginPath();ctx.arc(mx,yy,4.5,0,6.2832);ctx.fill();ctx.stroke();
+    if(joy){ctx.strokeStyle='rgba(23,16,13,.4)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(joy.ox,joy.oy,56,0,6.2832);ctx.stroke();ctx.fillStyle='rgba(197,58,33,.6)';ell(joy.ox+joy.dx,joy.oy+joy.dy,20,20)}
+    if(P.dashCd>0){const r=btnDash.getBoundingClientRect();ctx.strokeStyle='#cfa650';ctx.lineWidth=4;ctx.beginPath();ctx.arc(r.left+r.width/2,r.top+r.height/2,r.width/2+5,-1.5708,-1.5708+6.2832*(1-P.dashCd/S.dashCd));ctx.stroke()}
+  }
+}
+
+let last=0;
+function frame(t){
+  const dt=Math.min(.033,(t-last)/1000||0);last=t;
+  if(G.scene==='play'&&!G.paused)update(dt);
+  else if(!reduce){demoY+=dt*120;time+=dt}
+  draw();
+  requestAnimationFrame(frame);
+}
+
+function start(data){
+  if(data&&typeof data.ch==='number'&&data.ch<CH.length){G.ch=data.ch;G.perks=(data.perks||[]).filter(k=>PERKS[k]);G.total=data.total||0;if(data.ch>0||data.mid)intro();else title()}
+  else title();
+  if(document.fonts&&document.fonts.load)document.fonts.load('44px "Ma Shan Zheng"','函谷关中杭爱窴颜瀚海谒出逐命定襄漠南陇西焉支山北地居延泽祁连大代郡弓闾河狼胥斩俘降擒诛破夺登得粮').catch(()=>{});
+  requestAnimationFrame(frame);
+}
+try{window.claude&&window.claude.hot&&window.claude.hot.snapshot&&window.claude.hot.snapshot(()=>({ch:G.ch,perks:G.perks,total:G.total,mid:G.scene!=='title'&&G.scene!=='end'}))}catch(e){}
+if(window.claude&&window.claude.hot&&window.claude.hot.ready)window.claude.hot.ready(start);
+else start((window.claude&&window.claude.hot&&window.claude.hot.data)||{});
+})();
+</script>
+</body>
+</html>
